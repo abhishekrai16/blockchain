@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time Tracking DApp</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1, h2, h3 {
+            color: #333;
+        }
+        label {
+            display: block;
+            margin: 10px 0 5px;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+        }
+        button {
+            background-color: #4caf50;
+            color: #fff;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        p {
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Time Tracking DApp</h1>
+
+    <h2>Log Work</h2>
+    <label for="hoursWorked">Hours Worked:</label>
+    <input type="number" id="hoursWorked" placeholder="Enter hours worked" required>
+    <button onclick="logWork()">Log Work</button>
+
+    <h2>Total Hours Worked</h2>
+    <button onclick="getTotalHours()">Get Total Hours Worked</button>
+    <p>Total Hours Worked: <span id="totalHours"></span></p>
+
+    <h2>Daily Works</h2>
+    <button onclick="getDailyWorks()">Get Daily Works</button>
+    <p>Daily Works: <span id="dailyWorks"></span></p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/web3@1.3.6/dist/web3.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        // Connect to a local Ethereum node (replace with your node URL)
+        window.web3 = new Web3(new Web3.providers.HttpProvider('http://localhost:7545'));
+
+        // Replace with the deployed contract address
+        const contractAddress = '0x469bfE416668B4FeC208bf83C28C5F68C70F1Fe9';
+
+        // Replace with the ABI of your contract
+        const contractABI = [
+    {
+      "inputs": [],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "date",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "hoursWorked",
+          "type": "uint256"
+        }
+      ],
+      "name": "WorkLogged",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "dailyWorks",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "date",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "hoursWorked",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function",
+      "constant": true
+    },
+    {
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function",
+      "constant": true
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "hoursWorked",
+          "type": "uint256"
+        }
+      ],
+      "name": "logWork",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getTotalHoursWorked",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function",
+      "constant": true
+    },
+    {
+      "inputs": [],
+      "name": "getDailyWorksCount",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function",
+      "constant": true
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "transferOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ];  // Copy the ABI from your compiled contract
+
+        // Replace with the address that will be calling this function
+        const fromAddress = '0x5A6f93D3F7cEDDec672a08B6B2440b1B0c1B1681';
+
+        // Create a contract instance
+        const contract = new web3.eth.Contract(contractABI, contractAddress);
+
+        // Log Work
+        window.logWork = async () => {
+            const hoursWorked = document.getElementById('hoursWorked').value;
+            
+            const gas = await contract.methods.logWork(hoursWorked).estimateGas({ from: fromAddress });
+            const gasPrice = await web3.eth.getGasPrice();
+            const data = contract.methods.logWork(hoursWorked).encodeABI();
+
+            const signedTx = await web3.eth.accounts.signTransaction(
+                {
+                    to: contractAddress,
+                    gas,
+                    gasPrice,
+                    data,
+                },
+                '0x7173728cef57bb3aa8c63dbd3e6812d801d734565c79fe6cd27344314c11a307'  // Replace with your private key
+            );
+
+            await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
+            alert('Work logged successfully!');
+        };
+
+        // Get Total Hours Worked
+        window.getTotalHours = async () => {
+            const totalHours = await contract.methods.getTotalHoursWorked().call();
+            document.getElementById('totalHours').textContent = totalHours;
+        };
+
+        // Get Daily Works
+        window.getDailyWorks = async () => {
+            const count = await contract.methods.getDailyWorksCount().call();
+            let dailyWorks = '';
+
+            for (let i = 0; i < count; i++) {
+                const work = await contract.methods.dailyWorks(fromAddress, i).call();
+                const formattedDate = new Date(work.date * 1000).toLocaleString();  // Convert Unix timestamp to human-readable date
+
+                dailyWorks += `Date: ${formattedDate}, Hours Worked: ${work.hoursWorked} | `;
+            }
+
+            document.getElementById('dailyWorks').textContent = dailyWorks;
+        };
+    });
+</script>
+
+</body>
+</html>
