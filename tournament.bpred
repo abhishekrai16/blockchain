@@ -1,0 +1,60 @@
+#include "ooo_cpu.h"
+
+    // Configuration
+	static const int TABLE_SIZE = 1024;
+	static const int HISTORY_LENGTH = 10;
+
+	// Local history table, storing recent branch outcomes for each address
+	std::vector<uint32_t> localHistoryTable;
+	// Local prediction table, using local history as index
+	std::vector<int8_t> localPredictionTable;
+	// Global history, storing the recent global branch outcomes
+	uint32_t globalHistory;
+	// Global prediction table, using global history as index
+	std::vector<int8_t> globalPredictionTable;
+	// Selector table, deciding which predictor to trust
+	std::vector<int8_t> selectorTable;
+
+void updateCounter(int8_t& counter, bool taken) {
+    	if (taken) {
+        	if (counter < INT8_MAX) counter++;
+    	} else {
+        	if (counter > INT8_MIN) counter--;
+    	}
+	}
+
+void O3_CPU::initialize_branch_predictor() {
+    	localHistoryTable = std::vector<uint32_t>(TABLE_SIZE, 0);
+    	localPredictionTable = std::vector<int8_t>(TABLE_SIZE, 0);
+    	globalHistory = 0;
+    	globalPredictionTable = std::vector<int8_t>(TABLE_SIZE, 0);
+    	selectorTable = std::vector<int8_t>(TABLE_SIZE, 0);
+}
+
+uint8_t O3_CPU::predict_branch(uint64_t ip) {
+    	uint32_t index = ip % TABLE_SIZE;
+    	bool localPrediction = localPredictionTable[localHistoryTable[index]] >= 0;
+    	bool globalPrediction = globalPredictionTable[globalHistory] >= 0;
+    	return selectorTable[index] >= 0 ? globalPrediction : localPrediction;
+}
+
+void O3_CPU::last_branch_result(uint64_t ip, uint8_t taken) {
+	    uint32_t index = ip % TABLE_SIZE;
+    	uint32_t localIndex = localHistoryTable[index];
+    	updateCounter(localPredictionTable[localIndex], taken);
+    	localHistoryTable[index] = ((localIndex << 1) | taken) & ((1 << HISTORY_LENGTH) - 1);
+
+    	updateCounter(globalPredictionTable[globalHistory], taken);
+    	//globalHistory = ((globalHistory << 1) | taken) & ((1 << HISTORY_LENGTH) - 1);
+
+    	bool localPrediction = localPredictionTable[localIndex] >= 0;
+    	bool globalPrediction = globalPredictionTable[globalHistory] >= 0;
+        globalHistory = ((globalHistory << 1) | taken) & ((1 << HISTORY_LENGTH) - 1);
+    	if (localPrediction != globalPrediction) {
+        	if (localPrediction == taken && selectorTable[index] > INT8_MIN) {
+            	selectorTable[index]--;
+        	} else if (globalPrediction == taken && selectorTable[index] < INT8_MAX) {
+            	selectorTable[index]++;
+        	}
+    	}
+}
